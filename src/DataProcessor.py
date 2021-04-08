@@ -8,13 +8,14 @@ from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.decomposition import TruncatedSVD
 import os
 from sklearn import svm
-from nltk.tokenize import TweetTokenizer
+from nltk.tokenize.casual import TweetTokenizer
 import string
 from nltk.stem.porter import PorterStemmer
 import nltk
 import spacy
 import emoji
 from sklearn.model_selection import cross_val_score, KFold
+import gensim.models as gsm
 
 stemmer = PorterStemmer()
 stopset = set(list(string.punctuation))
@@ -78,7 +79,7 @@ class DataProcessor(object):
                 for id in cluster_ids:
                     output[id] += cluster_ids[id]
         for id in range(len(output)):
-            output[id] = output[id] * 1.0/self.cluster_word_count[n_cluster][id]
+            output[id] = output[id] * 1.0 / self.cluster_word_count[n_cluster][id]
         return output
 
     @staticmethod
@@ -90,7 +91,7 @@ class DataProcessor(object):
     @staticmethod
     def normalise_hashtag(hashtag):
         word = ""
-        output= []
+        output = []
         for char in hashtag:
             if char.isupper() or char == "#":
                 if len(word) > 0:
@@ -98,7 +99,6 @@ class DataProcessor(object):
                     word = ""
             if char != "#":
                 word += char
-
 
         output.append(word)
         return " ".join(output)
@@ -145,11 +145,31 @@ class DataProcessor(object):
         train_reader = open(train_file, 'r')
         for line in train_reader:
             elements = line.split("\t")
-            elements[2] = self.normalise_tweet(elements[2])
-            processed_data_file.write(elements[2].encode("utf8") + "\n")
+            # elements[2] = self.normalise_tweet(elements[2])
+            # processed_data_file.write(elements[2].encode("utf8") + "\n")
             if len(elements) == 3 and 'Label' not in elements[1]:
+
+                e2v = gsm.KeyedVectors.load_word2vec_format(self.ROOT_DIR + "data/emoji2vec.bin", binary=True)
+
+                emojiList = emoji.emoji_lis(elements[2].decode("utf8"))
+                emojiEmbeddingList = []
+                for em in emojiList:
+                    if em["emoji"] in e2v:
+                        vec = e2v[em["emoji"]]
+                        emojiEmbeddingList.append(vec)
+
+                if len(emojiEmbeddingList) == 0:
+                    emojiEmbeddingList.append(np.zeros(300))
+
+                emojiEmbedding = np.mean(emojiEmbeddingList, axis=0)
+                # features.append(emojiEmbedding.tolist())
+
+                elements[2] = self.normalise_tweet(elements[2])
+                processed_data_file.write(elements[2].encode("utf8") + "\n")
                 n_train += 1
+                # features[-1].extend(self.process_a_tweet(elements[2]))
                 features.append(self.process_a_tweet(elements[2]))
+                features[-1].extend(emojiEmbedding.tolist())
                 labels.append(int(elements[1]))
                 text_data.append(elements[2])
                 pos_tags.append(' '.join(self.extract_pos_tags(elements[2])))
@@ -170,17 +190,19 @@ class DataProcessor(object):
         processed_data_file.close()
 
         # n-gram features for POS tags
-        postag_tfidf_vectorizer = TfidfVectorizer(ngram_range=(1, 1), \
+        postag_tfidf_vectorizer = TfidfVectorizer(ngram_range=(1, 1),
                                                   max_features=self.n_features, norm='l2')
         postag_tfidfs = postag_tfidf_vectorizer.fit_transform(pos_tags)
         postag_tfidfs_features = postag_tfidfs.toarray()
+        print(len(features))
+        print(postag_tfidfs_features.shape)
         features = np.append(features, postag_tfidfs_features, 1)
         print(len(postag_tfidf_vectorizer.get_feature_names()))
         del postag_tfidfs_features
 
         # n-gram features for tweets
         # character-based n-grams
-        ngram_vectorizer = TfidfVectorizer(analyzer='char_wb', ngram_range=(1, 3), \
+        ngram_vectorizer = TfidfVectorizer(analyzer='char_wb', ngram_range=(1, 3),
                                            max_features=self.n_features, norm='l2')
         counts = ngram_vectorizer.fit_transform(text_data)
         n_grams_features = counts.toarray()
@@ -281,7 +303,8 @@ class DataProcessor(object):
                 normalised_tweet += self.normalise_hashtag(token_str) + " "
             elif normalised_token_str in self.normalisation_dict:
                 normalised_tweet += self.normalisation_dict[normalised_token_str] + " "
-            else: normalised_tweet += token_str + " "
+            else:
+                normalised_tweet += token_str + " "
         return normalised_tweet.strip().lower()
 
     @staticmethod
@@ -326,6 +349,20 @@ class DataProcessor(object):
         n_token = len(re.split("\\s+", tweet_str.lower()))
         embedding_vector = self.embedding_model(unicode(tweet_str))
         tweet_vector.extend(embedding_vector.vector)
+        #
+        # e2v = gsm.KeyedVectors.load_word2vec_format(self.ROOT_DIR + "data/emoji2vec.bin", binary=True)
+        #
+        # emojiList = emoji.emoji_lis(tweet_str)
+        # emojiEmbeddingList = []
+        # for em in emojiList:
+        #     emojiEmbeddingList.append(e2v[em["emoji"]])
+        #
+        # if len(emojiEmbeddingList) == 0:
+        #     emojiEmbeddingList.append(np.zeros(300))
+        #
+        # emojiEmbedding = np.mean(emojiEmbeddingList, axis=0)
+        # tweet_vector.append(emojiEmbedding)
+
         tweet_vector.append(self.has_irony_hashtag(tweet_str))
         tweet_vector.append(self.get_hash_tag_rate(tweet_str, n_token))
         tweet_vector.append(self.get_tagged_user_rate(tweet_str, n_token))
@@ -342,7 +379,7 @@ class DataProcessor(object):
         for char in tweet_str:
             if char.isupper():
                 count = count + 1
-        return count * 1.0/len(tweet_str)
+        return count * 1.0 / len(tweet_str)
 
     # Return the rates of sentiment words in a tweet
     def get_sentiment_word_rate(self, tweet_str):
@@ -359,7 +396,7 @@ class DataProcessor(object):
                           "frowning face with open mouth", "anguished face", "fearful face", "weary face",
                           "exploding head", "grimacing face", "anxious face with sweat", "face screaming in fear",
                           "flushed face", "zany face", "dizzy face", "pouting face",
-                          "angry face", "face with symbols on mouth" ,":(", ";(", ":-(", "-.-"]
+                          "angry face", "face with symbols on mouth", ":(", ";(", ":-(", "-.-"]
         sick_icons = ["face with medical mask", "face with thermometer", "face with head-bandage", "nauseated face",
                       "face vomiting", "sneezing face"]
         tweet = re.split("\\s+", tweet_str.lower())
@@ -388,13 +425,13 @@ class DataProcessor(object):
                     n_sick_icon += 1
                 else:
                     n_icon += 1
-        return n_positive_words/len(tweet), n_negative_words/len(tweet), \
-               n_not_words/len(tweet), n_pos_icon/len(tweet),\
-               n_neg_icon/len(tweet), n_sick_icon, n_icon/len(tweet)
+        return n_positive_words / len(tweet), n_negative_words / len(tweet), \
+               n_not_words / len(tweet), n_pos_icon / len(tweet), \
+               n_neg_icon / len(tweet), n_sick_icon, n_icon / len(tweet)
 
     def get_tagged_user_rate(self, tweet_str, n_token):
         results = re.findall("@", tweet_str)
-        return len(results)*1.0/n_token
+        return len(results) * 1.0 / n_token
 
     def get_hash_tag_rate(self, tweet_str, n_token):
         results = re.findall("#", tweet_str)
@@ -422,7 +459,7 @@ class DataProcessor(object):
         for line in label_file:
             elements = line.split("\t")
             id = int(elements[0])
-            out_file.write(line.strip()  + "\t" + tweet_map[id] + "\n")
+            out_file.write(line.strip() + "\t" + tweet_map[id] + "\n")
         out_file.close()
         label_file.close()
 
@@ -438,8 +475,9 @@ class DataProcessor(object):
 
         pred_valid_labels = lr.predict(valid_features)
         if task_name == "A":
-            f1_valid = f1_score(valid_labels, pred_valid_labels,  pos_label=1)
-        else: f1_valid = f1_score(valid_labels, pred_valid_labels,  average="macro")
+            f1_valid = f1_score(valid_labels, pred_valid_labels, pos_label=1)
+        else:
+            f1_valid = f1_score(valid_labels, pred_valid_labels, average="macro")
         print("F1 on valid : %f" % f1_valid)
         return lr.predict(train_features), lr.predict(valid_features), lr.predict(test_features), f1_valid
 
@@ -454,8 +492,9 @@ class DataProcessor(object):
         rg.fit(train_features, train_labels)
         pred_valid_labels = rg.predict(valid_features)
         if task_name == "A":
-            f1_valid = f1_score(valid_labels, pred_valid_labels,  pos_label=1)
-        else: f1_valid = f1_score(valid_labels, pred_valid_labels,  average="macro")
+            f1_valid = f1_score(valid_labels, pred_valid_labels, pos_label=1)
+        else:
+            f1_valid = f1_score(valid_labels, pred_valid_labels, average="macro")
         print("F1 on valid : %f" % f1_valid)
         return rg.predict(train_features), rg.predict(valid_features), rg.predict(test_features), f1_valid
 
@@ -471,15 +510,16 @@ class DataProcessor(object):
         clf.fit(train_features, train_labels)
         pred_valid_labels = clf.predict(valid_features)
         if task_name == "A":
-            f1_valid = f1_score(valid_labels, pred_valid_labels,  pos_label=1)
-        else: f1_valid = f1_score(valid_labels, pred_valid_labels,  average="macro")
+            f1_valid = f1_score(valid_labels, pred_valid_labels, pos_label=1)
+        else:
+            f1_valid = f1_score(valid_labels, pred_valid_labels, average="macro")
         print("F1 on valid : %f" % f1_valid)
         return clf.predict(train_features), clf.predict(valid_features), clf.predict(test_features), f1_valid
 
     @staticmethod
     def split_kfolds(data, n_fold):
         kf = KFold(n_splits=n_fold)
-        train_data =[]
+        train_data = []
         valid_data = []
         features = np.array(data["feature"])
         labels = np.array(data["label"])
@@ -492,4 +532,3 @@ class DataProcessor(object):
             train_data.append(train)
             valid_data.append(valid)
         return train_data, valid_data
-
