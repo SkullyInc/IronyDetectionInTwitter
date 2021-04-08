@@ -149,6 +149,7 @@ class DataProcessor(object):
             # processed_data_file.write(elements[2].encode("utf8") + "\n")
             if len(elements) == 3 and 'Label' not in elements[1]:
 
+                ##### Emoji shit
                 e2v = gsm.KeyedVectors.load_word2vec_format(self.ROOT_DIR + "data/emoji2vec.bin", binary=True)
 
                 emojiList = emoji.emoji_lis(elements[2].decode("utf8"))
@@ -162,12 +163,11 @@ class DataProcessor(object):
                     emojiEmbeddingList.append(np.zeros(300))
 
                 emojiEmbedding = np.mean(emojiEmbeddingList, axis=0)
-                # features.append(emojiEmbedding.tolist())
+                #############
 
                 elements[2] = self.normalise_tweet(elements[2])
                 processed_data_file.write(elements[2].encode("utf8") + "\n")
                 n_train += 1
-                # features[-1].extend(self.process_a_tweet(elements[2]))
                 features.append(self.process_a_tweet(elements[2]))
                 features[-1].extend(emojiEmbedding.tolist())
                 labels.append(int(elements[1]))
