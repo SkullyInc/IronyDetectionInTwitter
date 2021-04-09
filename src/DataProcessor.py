@@ -19,6 +19,7 @@ import gensim.models as gsm
 
 stemmer = PorterStemmer()
 stopset = set(list(string.punctuation))
+global trying
 
 
 class DataProcessor(object):
@@ -168,8 +169,12 @@ class DataProcessor(object):
                 elements[2] = self.normalise_tweet(elements[2])
                 processed_data_file.write(elements[2].encode("utf8") + "\n")
                 n_train += 1
-                features.append(self.process_a_tweet(elements[2]))
-                features[-1].extend(emojiEmbedding.tolist())
+
+                global trying
+                trying = emojiEmbedding
+                featureEntry = self.process_a_tweet(elements[2])
+                # featureEntry.extend(emojiEmbedding)
+                features.append(featureEntry)
                 labels.append(int(elements[1]))
                 text_data.append(elements[2])
                 pos_tags.append(' '.join(self.extract_pos_tags(elements[2])))
@@ -370,6 +375,7 @@ class DataProcessor(object):
         tweet_vector.extend(self.get_sentiment_word_rate(tweet_str))
         for n in self.n_list:
             tweet_vector.extend(self.get_brown_cluster_vector(tweet_str, n))
+        tweet_vector.extend(trying)
         return tweet_vector
 
     @staticmethod
