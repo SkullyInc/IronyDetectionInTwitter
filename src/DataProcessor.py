@@ -16,6 +16,7 @@ import spacy
 import emoji
 from sklearn.model_selection import cross_val_score, KFold
 import gensim.models as gsm
+import itertools
 
 stemmer = PorterStemmer()
 stopset = set(list(string.punctuation))
@@ -111,7 +112,7 @@ class DataProcessor(object):
         return " ".join(output)
 
     def extract_pos_tags(self, tweet_str):
-        tweet_str = self.remove_tweet_tags(tweet_str)
+        # tweet_str = self.remove_tweet_tags(tweet_str)
         tokenizing_text = self.tokenizer.tokenize(tweet_str)
         pos_tags = nltk.pos_tag(tokenizing_text)
         output = [tuple[1] for tuple in pos_tags]
@@ -251,11 +252,22 @@ class DataProcessor(object):
         print("Saved data!")
         return train_data, test_data
 
+    def is_elongated(self, word, normal):
+        zipped = list(itertools.izip_longest(word, normal))
+        for idx, t in enumerate(zipped):
+            if t[0] != t[1] and idx > 0 and t[0] != None:
+                if word[idx-1] == t[0]:
+                    return "True"
+
+        return "False"
+
+
     def load_normalisation_dict(self):
         reader = open(self.ROOT_DIR + "data/normalisation/emnlp_dict.txt")
         for line in reader:
             elements = re.split("\\s+", line)
             self.normalisation_dict[elements[0].strip()] = elements[1].strip()
+            print(elements[0] + ", " + elements[1] + ", " + self.is_elongated(elements[0], elements[1]))
         reader.close()
         reader = open(self.ROOT_DIR + "data/normalisation/Test_Set_3802_Pairs.txt")
         for line in reader:
