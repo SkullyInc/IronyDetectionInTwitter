@@ -153,8 +153,14 @@ class DataProcessor(object):
         train_reader = open(train_file, 'r')
         for line in train_reader:
             elements = line.split("\t")
+<<<<<<< HEAD
             # elements[2] = self.normalise_tweet(elements[2])
             # processed_data_file.write(elements[2].encode("utf8") + "\n")
+=======
+            elements[2], elongated_counter = self.normalise_tweet(elements[2])
+
+            processed_data_file.write(elements[2].encode("utf8") + "\n")
+>>>>>>> d26f044... Use elongated feature
             if len(elements) == 3 and 'Label' not in elements[1]:
 
                 ##### Emoji shit
@@ -176,11 +182,15 @@ class DataProcessor(object):
                 elements[2] = self.normalise_tweet(elements[2])
                 processed_data_file.write(elements[2].encode("utf8") + "\n")
                 n_train += 1
+<<<<<<< HEAD
 
                 global trying
                 trying = emojiEmbedding
                 featureEntry = self.process_a_tweet(elements[2])
                 features.append(featureEntry)
+=======
+                features.append(self.process_a_tweet(elements[2], elongated_counter))
+>>>>>>> d26f044... Use elongated feature
                 labels.append(int(elements[1]))
                 text_data.append(elements[2])
                 pos_tags.append(' '.join(self.extract_pos_tags(elements[2])))
@@ -190,10 +200,10 @@ class DataProcessor(object):
         test_reader = open(test_file, 'r')
         for line in test_reader:
             elements = line.split("\t")
-            elements[1] = self.normalise_tweet(elements[1])
+            elements[1], elongated_counter = self.normalise_tweet(elements[1])
             processed_data_file.write(elements[1].encode("utf8") + "\n")
             if len(elements) == 2 and 'tweet index' not in elements[1]:
-                features.append(self.process_a_tweet(elements[1]))
+                features.append(self.process_a_tweet(elements[1], elongated_counter))
                 text_data.append(elements[1])
                 pos_tags.append(' '.join(self.extract_pos_tags(elements[1])))
 
@@ -308,10 +318,11 @@ class DataProcessor(object):
         tweet_str = re.sub("\\s+", " ", re.sub("http.*?\\s", "url", tweet_str)
                            .replace(":", " ").replace("#", " #").replace("@", " @"))
         tweet = self.tokenizer.tokenize(tweet_str)
+        elongated_counter = 0
         normalised_tweet = ""
 
         for token_str in tweet:
-            normalised_token_str = self.normalise_str(token_str.lower())
+            normalised_token_str, elongated = self.normalise_str(token_str.lower())
             if "haha" in normalised_token_str:
                 token_str = "lol"
             if token_str.startswith("@"):
@@ -325,14 +336,18 @@ class DataProcessor(object):
                 normalised_tweet += self.normalise_hashtag(token_str) + " "
             elif normalised_token_str in self.normalisation_dict:
                 normalised_tweet += self.normalisation_dict[normalised_token_str][0] + " "
+                elongated = elongated or self.normalisation_dict[normalised_token_str][1]
             else:
                 normalised_tweet += token_str + " "
-        return normalised_tweet.strip().lower()
+
+            elongated_counter = elongated_counter + 1 if elongated else elongated_counter
+        return normalised_tweet.strip().lower(), elongated
 
     @staticmethod
     def normalise_str(str_in):
         normalised_str = ""
         count = 0
+        elongated = False
         pre_char = None
         for i in range(len(str_in)):
             if i > 0:
@@ -340,10 +355,11 @@ class DataProcessor(object):
                     count += 1
                 else:
                     count = 0
-            if count <= 2:
+            if count <= 2: # This already removes (the majority of) duplicate letters, why are they still in the dictionary?
                 normalised_str += str_in[i]
+                elongated = True
             pre_char = str_in[i]
-        return normalised_str
+        return normalised_str, elongated
 
     @staticmethod
     def is_number(s):
@@ -362,7 +378,7 @@ class DataProcessor(object):
 
         return False
 
-    def process_a_tweet(self, tweet_str):
+    def process_a_tweet(self, tweet_str, elongated_counter):
         tweet_vector = []
         if type(tweet_str) != str:
             tweet_str = unicode(tweet_str).encode('utf8')
@@ -370,6 +386,8 @@ class DataProcessor(object):
         tweet_str = tweet_str.decode('utf-8')
         n_token = len(re.split("\\s+", tweet_str.lower()))
         embedding_vector = self.embedding_model(unicode(tweet_str))
+
+        tweet_vector.append(elongated_counter * 1.0/n_token) # Consistent with how the features below are added
         tweet_vector.extend(embedding_vector.vector)
 
         tweet_vector.append(self.has_irony_hashtag(tweet_str))
