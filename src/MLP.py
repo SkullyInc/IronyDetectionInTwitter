@@ -12,7 +12,7 @@ class MLP(object):
     # Hyper Parameters
     target_size = 4
     hidden_size = 800
-    hidden_size_1 = 300
+    hidden_size_1 = 400
     train_keep_prob = 0.95
     l2_alpha = 0.00001
     learn_rate = 0.0001
@@ -51,6 +51,7 @@ class MLP(object):
 
         n_train = len(train_features)
         feature_size = len(train_features[0])
+        print("feature size: ", feature_size)
 
         # Create placeholders
         features_pl = tf.placeholder(tf.float32, [None, feature_size], name='features')

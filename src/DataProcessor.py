@@ -22,6 +22,12 @@ stopset = set(list(string.punctuation))
 global trying
 
 
+def removeEmoji(tweet, replace='', language='en', ):
+    """Replace unicode emoji in a customizable string.
+    """
+    return re.sub(u'\ufe0f', '', (emoji.get_emoji_regexp(language).sub(replace, tweet)))
+
+
 class DataProcessor(object):
     n_features = 1000
     n_lsi = 100
@@ -173,7 +179,6 @@ class DataProcessor(object):
                 global trying
                 trying = emojiEmbedding
                 featureEntry = self.process_a_tweet(elements[2])
-                # featureEntry.extend(emojiEmbedding)
                 features.append(featureEntry)
                 labels.append(int(elements[1]))
                 text_data.append(elements[2])
@@ -287,6 +292,7 @@ class DataProcessor(object):
 
     def normalise_tweet(self, tweet_str):
 
+        # tweet_str = removeEmoji(tweet_str.decode("utf8"))
         tweet_str = (emoji.demojize(tweet_str.decode("utf8")))
         tweet_str = re.sub("\\s+", " ", re.sub("http.*?\\s", "url", tweet_str)
                            .replace(":", " ").replace("#", " #").replace("@", " @"))
@@ -354,19 +360,6 @@ class DataProcessor(object):
         n_token = len(re.split("\\s+", tweet_str.lower()))
         embedding_vector = self.embedding_model(unicode(tweet_str))
         tweet_vector.extend(embedding_vector.vector)
-        #
-        # e2v = gsm.KeyedVectors.load_word2vec_format(self.ROOT_DIR + "data/emoji2vec.bin", binary=True)
-        #
-        # emojiList = emoji.emoji_lis(tweet_str)
-        # emojiEmbeddingList = []
-        # for em in emojiList:
-        #     emojiEmbeddingList.append(e2v[em["emoji"]])
-        #
-        # if len(emojiEmbeddingList) == 0:
-        #     emojiEmbeddingList.append(np.zeros(300))
-        #
-        # emojiEmbedding = np.mean(emojiEmbeddingList, axis=0)
-        # tweet_vector.append(emojiEmbedding)
 
         tweet_vector.append(self.has_irony_hashtag(tweet_str))
         tweet_vector.append(self.get_hash_tag_rate(tweet_str, n_token))
@@ -394,15 +387,16 @@ class DataProcessor(object):
                           "grinning face with smiling eyes", "grinning face with sweat", "grinning squinting face",
                           "winking face", "smiling face with smiling eyes", "face savoring food",
                           "smiling face with sunglasses", "smiling face with heart-eyes",
-                          "smiling face with heart-shaped eyes", "face blowing a kiss", "kissing face",
+                          "smiling face with heart-eyes", "face blowing a kiss", "kissing face",
                           "kissing face with smiling eyes", "kissing face with closed eyes", "smiling face",
-                          "slightly smiling face", "hugging face", "star-struck", ":)", ";)", ":-)", "lol"]
+                          "slightly smiling face", "hugging face", "star-struck", ":)", ";)", ":-)", "lol", "thumbs up",
+                          "clapping hands", "raising hands", "OK hand", "flexed bicep"]
         negative_icons = ["frowning face", "slightly frowning face", "confounded face", "disappointed face",
                           "worried face", "face with steam from nose", "crying face", "loudly crying face",
                           "frowning face with open mouth", "anguished face", "fearful face", "weary face",
                           "exploding head", "grimacing face", "anxious face with sweat", "face screaming in fear",
                           "flushed face", "zany face", "dizzy face", "pouting face",
-                          "angry face", "face with symbols on mouth", ":(", ";(", ":-(", "-.-"]
+                          "angry face", "face with symbols on mouth", ":(", ";(", ":-(", "-.-", "thumbs down"]
         sick_icons = ["face with medical mask", "face with thermometer", "face with head-bandage", "nauseated face",
                       "face vomiting", "sneezing face"]
         tweet = re.split("\\s+", tweet_str.lower())
