@@ -92,7 +92,7 @@ class DataProcessor(object):
 
     @staticmethod
     def remove_tweet_tags(tweet_str):
-        tweet_str = tweet_str.replace("taggeduser", "").replace("url", "").replace("number", "")
+        # tweet_str = tweet_str.replace("taggeduser", "").replace("url", "").replace("number", "")
         tweet_str = re.sub("#", " ", tweet_str)
         return re.sub("\\s+", " ", tweet_str).strip()
 
@@ -112,7 +112,7 @@ class DataProcessor(object):
         return " ".join(output)
 
     def extract_pos_tags(self, tweet_str):
-        # tweet_str = self.remove_tweet_tags(tweet_str)
+        tweet_str = self.remove_tweet_tags(tweet_str)
         tokenizing_text = self.tokenizer.tokenize(tweet_str)
         pos_tags = nltk.pos_tag(tokenizing_text)
         output = [tuple[1] for tuple in pos_tags]
@@ -257,22 +257,21 @@ class DataProcessor(object):
         for idx, t in enumerate(zipped):
             if t[0] != t[1] and idx > 0 and t[0] != None:
                 if word[idx-1] == t[0]:
-                    return "True"
+                    return True
 
-        return "False"
+        return False
 
 
     def load_normalisation_dict(self):
         reader = open(self.ROOT_DIR + "data/normalisation/emnlp_dict.txt")
         for line in reader:
             elements = re.split("\\s+", line)
-            self.normalisation_dict[elements[0].strip()] = elements[1].strip()
-            print(elements[0] + ", " + elements[1] + ", " + self.is_elongated(elements[0], elements[1]))
+            self.normalisation_dict[elements[0].strip()] = [elements[1].strip(), self.is_elongated(elements[0], elements[1])]
         reader.close()
         reader = open(self.ROOT_DIR + "data/normalisation/Test_Set_3802_Pairs.txt")
         for line in reader:
             elements = line.split("\t")[1].split(" | ")
-            self.normalisation_dict[elements[0].strip()] = elements[1].strip()
+            self.normalisation_dict[elements[0].strip()] = [elements[1].strip(), self.is_elongated(elements[0], elements[1])]
 
         reader.close()
 
@@ -325,7 +324,7 @@ class DataProcessor(object):
                 normalised_tweet += token_str + " "
                 normalised_tweet += self.normalise_hashtag(token_str) + " "
             elif normalised_token_str in self.normalisation_dict:
-                normalised_tweet += self.normalisation_dict[normalised_token_str] + " "
+                normalised_tweet += self.normalisation_dict[normalised_token_str][0] + " "
             else:
                 normalised_tweet += token_str + " "
         return normalised_tweet.strip().lower()
