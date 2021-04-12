@@ -153,14 +153,8 @@ class DataProcessor(object):
         train_reader = open(train_file, 'r')
         for line in train_reader:
             elements = line.split("\t")
-<<<<<<< HEAD
             # elements[2] = self.normalise_tweet(elements[2])
             # processed_data_file.write(elements[2].encode("utf8") + "\n")
-=======
-            elements[2], elongated_counter = self.normalise_tweet(elements[2])
-
-            processed_data_file.write(elements[2].encode("utf8") + "\n")
->>>>>>> d26f044... Use elongated feature
             if len(elements) == 3 and 'Label' not in elements[1]:
 
                 ##### Emoji shit
@@ -179,18 +173,14 @@ class DataProcessor(object):
                 emojiEmbedding = np.mean(emojiEmbeddingList, axis=0)
                 #############
 
-                elements[2] = self.normalise_tweet(elements[2])
+                elements[2], elongated_counter = self.normalise_tweet(elements[2])
                 processed_data_file.write(elements[2].encode("utf8") + "\n")
                 n_train += 1
-<<<<<<< HEAD
 
                 global trying
                 trying = emojiEmbedding
-                featureEntry = self.process_a_tweet(elements[2])
+                featureEntry = self.process_a_tweet(elements[2], elongated_counter)
                 features.append(featureEntry)
-=======
-                features.append(self.process_a_tweet(elements[2], elongated_counter))
->>>>>>> d26f044... Use elongated feature
                 labels.append(int(elements[1]))
                 text_data.append(elements[2])
                 pos_tags.append(' '.join(self.extract_pos_tags(elements[2])))
@@ -241,17 +231,17 @@ class DataProcessor(object):
         del tfidfs_features
 
         # LSI features
-        if self.n_lsi > 0:
-            print("Training LSI!")
-            svd_model = TruncatedSVD(n_components=self.n_lsi, \
-                                     algorithm='arpack', \
-                                     n_iter=self.n_iter, random_state=self.random_state)
-            svd_matrix = svd_model.fit_transform(tfidfs)
-            features = np.append(features, svd_matrix, 1)
-            print(len(features[0]))
-            del tfidfs
-            del svd_matrix
-            print("Got LSI!")
+        # if self.n_lsi > 0:
+        #     print("Training LSI!")
+        #     svd_model = TruncatedSVD(n_components=self.n_lsi, \
+        #                              algorithm='arpack', \
+        #                              n_iter=self.n_iter, random_state=self.random_state)
+        #     svd_matrix = svd_model.fit_transform(tfidfs)
+        #     features = np.append(features, svd_matrix, 1)
+        #     print(len(features[0]))
+        #     del tfidfs
+        #     del svd_matrix
+        #     print("Got LSI!")
 
         if not os.path.exists(self.ROOT_DIR + 'data/saved'):
             os.makedirs(self.ROOT_DIR + 'data/saved')
@@ -341,7 +331,7 @@ class DataProcessor(object):
                 normalised_tweet += token_str + " "
 
             elongated_counter = elongated_counter + 1 if elongated else elongated_counter
-        return normalised_tweet.strip().lower(), elongated
+        return normalised_tweet.strip().lower(), elongated_counter
 
     @staticmethod
     def normalise_str(str_in):
@@ -357,6 +347,7 @@ class DataProcessor(object):
                     count = 0
             if count <= 2: # This already removes (the majority of) duplicate letters, why are they still in the dictionary?
                 normalised_str += str_in[i]
+            if count > 2:
                 elongated = True
             pre_char = str_in[i]
         return normalised_str, elongated
@@ -395,8 +386,8 @@ class DataProcessor(object):
         tweet_vector.append(self.get_tagged_user_rate(tweet_str, n_token))
         tweet_vector.append(self.get_uppercase_rate(tweet_str))
         tweet_vector.extend(self.get_sentiment_word_rate(tweet_str))
-        for n in self.n_list:
-            tweet_vector.extend(self.get_brown_cluster_vector(tweet_str, n))
+        # for n in self.n_list:
+        #     tweet_vector.extend(self.get_brown_cluster_vector(tweet_str, n))
         tweet_vector.extend(trying)
         return tweet_vector
 
