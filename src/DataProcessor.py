@@ -258,9 +258,14 @@ class DataProcessor(object):
             f.close()
         return ret_dict
 
+    @staticmethod
+    def removeEmoji(tweet, replace='', language='en', ):
+        return re.sub(u'\ufe0f', '', (emoji.get_emoji_regexp(language).sub(replace, tweet)))
+
     def normalise_tweet(self, tweet_str):
 
-        tweet_str = (emoji.demojize(tweet_str.decode("utf8")))
+        # tweet_str = (emoji.demojize(tweet_str.decode("utf8")))
+        tweet_str = self.removeEmoji(tweet_str.decode("utf8"))
         tweet_str = re.sub("\\s+", " ", re.sub("http.*?\\s", "url", tweet_str)
                            .replace(":", " ").replace("#", " #").replace("@", " @"))
         tweet = self.tokenizer.tokenize(tweet_str)
